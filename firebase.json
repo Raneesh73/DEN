@@ -1,6 +1,3 @@
-# firebase.json
-# Firebase Hosting deployment configuration for DEN Flutter Web
-
 {
   "hosting": {
     "public": "build/web",
