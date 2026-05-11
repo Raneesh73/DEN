@@ -41,18 +41,30 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> signUp(String email, String name, String password) async {
+  Future<void> signUp(String email, String username, String password) async {
     state = const AsyncValue.loading();
     try {
       final credential = await _authService.signUp(email, password);
       if (credential?.user != null) {
         final user = UserModel(
           uid: credential!.user!.uid,
-          name: name,
+          username: username,
           email: email,
+          joinedDenIds: [],
+          status: 'online',
         );
         await _firestoreService.createUser(user);
       }
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    state = const AsyncValue.loading();
+    try {
+      await _authService.sendPasswordResetEmail(email);
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

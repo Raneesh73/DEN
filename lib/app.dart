@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/auth_provider.dart';
 import 'features/auth/login_screen.dart';
-import 'features/den/den_screen.dart';
-import 'features/map/map_screen.dart';
+import 'features/home/main_navigation_screen.dart';
 import 'core/app_theme.dart';
 import 'core/app_colors.dart';
 
@@ -45,8 +44,10 @@ class DenApp extends ConsumerWidget {
                   ),
                 );
               }
-              if (profile.denId == null) return const DenScreen();
-              return const MapScreen();
+              if (profile.activeDenId == null) {
+                return const MainNavigationScreen(); // It will show dashboard, which might prompt to join a den
+              }
+              return const MainNavigationScreen();
             },
             loading: () => const Scaffold(
               backgroundColor: AppColors.background,

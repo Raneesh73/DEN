@@ -7,6 +7,8 @@ import 'auth_provider.dart';
 import '../models/user_model.dart';
 import '../utils/haversine.dart';
 
+import '../models/message_model.dart';
+
 final locationServiceProvider = Provider((ref) => LocationService());
 
 enum MapPermissionState { initial, granted, denied, permanentlyDenied }
@@ -46,7 +48,8 @@ class MapController extends StateNotifier<AsyncValue<MapPermissionState>> {
       final user = _ref.read(userProfileProvider).value;
       if (user != null) {
         final now = DateTime.now();
-        if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inSeconds >= 10) {
+        // Update every 30 seconds as requested or significant movement
+        if (_lastUpdateTime == null || now.difference(_lastUpdateTime!).inSeconds >= 30) {
           _lastUpdateTime = now;
           _firestoreService.updateUserLocation(user.uid, position.latitude, position.longitude);
           _checkProximity(position.latitude, position.longitude);
@@ -79,22 +82,30 @@ class MapController extends StateNotifier<AsyncValue<MapPermissionState>> {
         nearbyCount++;
         if (!_nearbyNotified.contains(member.uid)) {
           _nearbyNotified.add(member.uid);
-          debugPrint("Member nearby: ${member.name}");
-          // Trigger sound logic would go here
         }
       } else {
         _nearbyNotified.remove(member.uid);
       }
     }
 
-    // DEN UNITED logic
+    // DEN UNITED logic with cooldown/trigger once refinement
     if (nearbyCount == members.length && members.length > 1) {
       if (!_isDenUnited) {
         _isDenUnited = true;
         _ref.read(denUnitedProvider.notifier).state = true;
       }
     } else {
-      if (_isDenUnited) {
+      // Only reset when they separate significantly (e.g. 100m) to prevent flickering
+      bool anyFar = false;
+      for (var member in members) {
+        if (member.uid == currentUser.uid || member.latitude == null) continue;
+        final d = Haversine.calculateDistance(lat, lng, member.latitude!, member.longitude!);
+        if (d > 100) {
+          anyFar = true;
+          break;
+        }
+      }
+      if (anyFar && _isDenUnited) {
         _isDenUnited = false;
         _ref.read(denUnitedProvider.notifier).state = false;
       }
@@ -103,9 +114,16 @@ class MapController extends StateNotifier<AsyncValue<MapPermissionState>> {
 
   Future<void> sendSOS() async {
     final user = _ref.read(userProfileProvider).value;
-    if (user == null || user.latitude == null) return;
+    if (user == null || user.latitude == null || user.activeDenId == null) return;
     
-    await _firestoreService.sendSOSAlert(user.uid, user.name, user.latitude!, user.longitude!);
+    await _firestoreService.sendSOSAlert(user.uid, user.username, user.latitude!, user.longitude!, user.activeDenId!);
+  }
+
+  Future<void> sendQuickMessage(String content) async {
+    final user = _ref.read(userProfileProvider).value;
+    if (user == null || user.activeDenId == null) return;
+    
+    await _firestoreService.sendQuickMessage(user.uid, user.username, user.activeDenId!, content);
   }
 }
 
@@ -121,12 +139,18 @@ final mapControllerProvider = StateNotifierProvider<MapController, AsyncValue<Ma
 
 final denMembersProvider = StreamProvider<List<UserModel>>((ref) {
   final user = ref.watch(userProfileProvider).value;
-  if (user?.denId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).streamDenMembers(user!.denId!);
+  if (user?.activeDenId == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).streamDenMembers(user!.activeDenId!);
 });
 
 final alertsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final user = ref.watch(userProfileProvider).value;
-  if (user?.denId == null) return Stream.value([]);
-  return ref.watch(firestoreServiceProvider).streamSOSAlerts(user!.denId!);
+  if (user?.activeDenId == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).streamSOSAlerts(user!.activeDenId!);
+});
+
+final quickMessagesProvider = StreamProvider<List<MessageModel>>((ref) {
+  final user = ref.watch(userProfileProvider).value;
+  if (user?.activeDenId == null) return Stream.value([]);
+  return ref.watch(firestoreServiceProvider).streamQuickMessages(user!.activeDenId!);
 });

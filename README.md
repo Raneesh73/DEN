@@ -70,18 +70,17 @@ DEN combines the concept of private social circles with modern real-time safety 
 
 ## ✨ Features
 
-| Feature                            | Description                                                                                          |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 🗺️ **Live Map Dashboard**         | Full-screen Google Maps with custom dark theme, real-time member markers, and smooth camera tracking |
-| 👥 **Den (Private Circle) System** | Create private groups or join existing ones via 6-character invite codes                             |
-| 🔐 **Firebase Authentication**     | Secure email/password authentication with persistent sessions                                        |
-| 📍 **Real-Time Location Sync**     | Background GPS updates synced through Firestore in real time                                         |
-| 🚨 **SOS Alert System**            | One-tap emergency alert system for all Den members                                                   |
-| 🎉 **DEN UNITED Celebration**      | Detects when all members gather nearby and triggers celebration effects                              |
-| 🌙 **Premium Cyberpunk UI**        | Glassmorphism UI, neon accents, dark futuristic theme, smooth animations                             |
-| ⚡ **Riverpod Architecture**        | Optimized reactive state management with minimal unnecessary rebuilds                                |
-| 📡 **Realtime Firestore Streams**  | Live member synchronization using Firestore snapshot listeners                                       |
-| 📱 **Cross Platform**              | Supports Android APK and Flutter Web deployment                                                      |
+| Feature | Description |
+|---|---|
+| 🗺️ **Live Map Dashboard** | Full-screen Google Maps with custom dark theme, real-time member markers, and smooth camera tracking |
+| 👥 **Multi-Den System** | Manage up to 3 private circles (Dens) simultaneously. Seamlessly switch active circles with one tap |
+| 💬 **Quick Messages** | Send ephemeral 15-second "Quick Messages" that appear directly over your map marker for instant context |
+| 🔐 **Firebase Authentication** | Secure email/password auth with persistent session handling, password reset, and profile creation |
+| 📍 **Real-Time Location Sync** | Background GPS via Geolocator streams live coordinates to Firestore for active circle members |
+| 🚨 **SOS Alert System** | High-priority emergency broadcast that alerts your entire circle with live location updates |
+| 👤 **Profile Management** | Customize your identity with unique usernames, bios, and real-time status updates |
+| 🌙 **Premium Cyberpunk UI** | Glassmorphism cards, neon accents, animated backgrounds, and smooth micro-animations |
+| ⚡ **Riverpod Architecture** | Fully reactive state with StreamProviders, StateNotifiers, and zero unnecessary rebuilds |
 
 ---
 
@@ -341,15 +340,14 @@ service cloud.firestore {
 
 ## 📈 Future Improvements
 
-* Push notifications
-* AI-powered safety alerts
-* Geofencing
-* Route prediction
-* Offline synchronization
-* iOS support
-* Voice alerts
-* Den group chat
-* Location history timeline
+- [x] **Multi-Den Support** — Manage multiple circles simultaneously
+- [x] **Quick Messages** — 15s ephemeral map marker messages
+- [x] **Profile Editing** — Unique usernames and bios
+- [ ] **Push Notifications** — FCM alerts when SOS is triggered
+- [ ] **Custom Avatars** — Profile photo upload via Firebase Storage
+- [ ] **Location History** — Breadcrumb trail for the last N hours
+- [ ] **Geofencing** — Alerts when a member enters/exits a defined zone
+- [ ] **iOS Support** — Full Apple Maps + Geolocator support
 
 ---
 

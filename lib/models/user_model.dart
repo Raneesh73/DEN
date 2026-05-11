@@ -2,20 +2,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
   final String uid;
-  final String name;
+  final String username;
   final String email;
   final String? photoUrl;
-  final String? denId;
+  final List<String> joinedDenIds;
+  final String? activeDenId;
+  final String status; // 'online', 'offline', 'sos'
+  final String? bio;
+  final String? phoneNumber;
   final double? latitude;
   final double? longitude;
   final DateTime? lastUpdated;
 
   UserModel({
     required this.uid,
-    required this.name,
+    required this.username,
     required this.email,
     this.photoUrl,
-    this.denId,
+    required this.joinedDenIds,
+    this.activeDenId,
+    required this.status,
+    this.bio,
+    this.phoneNumber,
     this.latitude,
     this.longitude,
     this.lastUpdated,
@@ -24,10 +32,14 @@ class UserModel {
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
-      'name': name,
+      'username': username,
       'email': email,
       'photoUrl': photoUrl,
-      'denId': denId,
+      'joinedDenIds': joinedDenIds,
+      'activeDenId': activeDenId,
+      'status': status,
+      'bio': bio,
+      'phoneNumber': phoneNumber,
       'latitude': latitude,
       'longitude': longitude,
       'lastUpdated': lastUpdated != null ? Timestamp.fromDate(lastUpdated!) : null,
@@ -37,13 +49,21 @@ class UserModel {
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
       uid: map['uid'] ?? '',
-      name: map['name'] ?? '',
+      username: map['username'] ?? map['name'] ?? '', // Fallback to 'name' if existing data
       email: map['email'] ?? '',
       photoUrl: map['photoUrl'],
-      denId: map['denId'],
+      joinedDenIds: List<String>.from(map['joinedDenIds'] ?? []),
+      activeDenId: map['activeDenId'] ?? map['denId'], // Fallback to 'denId' if existing data
+      status: map['status'] ?? 'online',
+      bio: map['bio'],
+      phoneNumber: map['phoneNumber'],
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
       lastUpdated: (map['lastUpdated'] as Timestamp?)?.toDate(),
     );
   }
+
+  // Deprecated field getter for backward compatibility during migration
+  String get name => username;
+  String? get denId => activeDenId;
 }

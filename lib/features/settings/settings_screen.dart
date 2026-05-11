@@ -34,14 +34,12 @@ class SettingsScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(Spacing.m),
                   child: Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary),
-                        onPressed: () => Navigator.pop(context),
-                      ),
+                      const Spacer(),
                       Text(
-                        'SETTINGS',
-                        style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
+                        'PROFILE SETTINGS',
+                        style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
                       ),
+                      const Spacer(),
                     ],
                   ),
                 ),
@@ -51,23 +49,47 @@ class SettingsScreen extends ConsumerWidget {
                 Center(
                   child: Column(
                     children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: AppColors.primary,
-                        child: Text(
-                          user?.name[0].toUpperCase() ?? '?',
-                          style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                      GestureDetector(
+                        onTap: () => _showEditProfile(context, ref, user),
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundColor: AppColors.primary,
+                              child: Text(
+                                user?.username[0].toUpperCase() ?? '?',
+                                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                child: const Icon(Icons.edit, color: Colors.white, size: 16),
+                              ),
+                            ),
+                          ],
                         ),
                       ).animate().scale(),
                       const SizedBox(height: Spacing.m),
                       Text(
-                        user?.name ?? 'Loading...',
+                        user?.username ?? 'Loading...',
                         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         user?.email ?? '',
-                        style: const TextStyle(color: AppColors.textSecondary),
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
+                      if (user?.bio != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            user!.bio!,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontStyle: FontStyle.italic),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -78,16 +100,24 @@ class SettingsScreen extends ConsumerWidget {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(horizontal: Spacing.m),
                     children: [
-                      _buildSettingsTile(Icons.notifications_active_outlined, 'Notifications', 'Enabled'),
-                      _buildSettingsTile(Icons.location_on_outlined, 'Location Sharing', 'Live'),
-                      _buildSettingsTile(Icons.security, 'Privacy & Security', 'Protected'),
+                      _buildSettingsTile(context, Icons.notifications_active_outlined, 'Notifications', 'Enabled'),
+                      _buildSettingsTile(context, Icons.location_on_outlined, 'Location Precision', 'High'),
+                      _buildSettingsTile(context, Icons.security, 'Privacy Mode', 'Standard'),
+                      
                       const SizedBox(height: 40),
+                      
                       GlassButton(
                         onPressed: () {
                           ref.read(authControllerProvider.notifier).signOut();
-                          Navigator.pop(context);
                         },
                         text: 'LOGOUT',
+                      ),
+                      
+                      const SizedBox(height: Spacing.m),
+                      
+                      TextButton(
+                        onPressed: () => _confirmEmergencyReset(context, ref),
+                        child: const Text('EMERGENCY RESET', style: TextStyle(color: AppColors.error, fontSize: 12, letterSpacing: 1)),
                       ),
                     ],
                   ),
@@ -100,22 +130,89 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSettingsTile(IconData icon, String title, String value) {
+  Widget _buildSettingsTile(BuildContext context, IconData icon, String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.m),
       child: GlassCard(
         padding: const EdgeInsets.all(Spacing.m),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.primary),
+            Icon(icon, color: AppColors.primary, size: 20),
             const SizedBox(width: Spacing.m),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const Spacer(),
-            Text(value, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+            Text(value, style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold)),
             const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 16),
           ],
         ),
       ),
     ).animate().fade().slideX(begin: 0.1);
+  }
+
+  void _showEditProfile(BuildContext context, WidgetRef ref, dynamic user) {
+    final nameController = TextEditingController(text: user?.username);
+    final bioController = TextEditingController(text: user?.bio);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: GlassCard(
+          padding: const EdgeInsets.all(Spacing.l),
+          borderRadius: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('EDIT PROFILE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const SizedBox(height: Spacing.l),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Username'),
+              ),
+              const SizedBox(height: Spacing.m),
+              TextField(
+                controller: bioController,
+                decoration: const InputDecoration(labelText: 'Bio (optional)'),
+                maxLength: 50,
+              ),
+              const SizedBox(height: Spacing.l),
+              GlassButton(
+                onPressed: () {
+                  ref.read(firestoreServiceProvider).updateProfile(user!.uid, {
+                    'username': nameController.text,
+                    'bio': bioController.text,
+                  });
+                  Navigator.pop(context);
+                },
+                text: 'SAVE CHANGES',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmEmergencyReset(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('EMERGENCY RESET?'),
+        content: const Text('This will sign you out and clear local cached states. Use if the app feels stuck.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () {
+              ref.read(authControllerProvider.notifier).signOut();
+              Navigator.pop(context);
+            },
+            child: const Text('RESET', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
   }
 }

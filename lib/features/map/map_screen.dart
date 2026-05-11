@@ -7,7 +7,6 @@ import 'package:geolocator/geolocator.dart';
 import '../../providers/map_provider.dart';
 import '../../providers/den_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../settings/settings_screen.dart';
 import '../../core/app_colors.dart';
 import '../../core/spacing_constants.dart';
 import '../../widgets/glass_widgets.dart';
@@ -57,9 +56,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final members = ref.watch(denMembersProvider);
     final userProfile = ref.watch(userProfileProvider).value;
     final permissionState = ref.watch(mapControllerProvider);
+    final quickMessages = ref.watch(quickMessagesProvider).value ?? [];
     
-    final inviteCode = userProfile?.denId != null 
-        ? ref.watch(denInviteCodeProvider(userProfile!.denId!))
+    final inviteCode = userProfile?.activeDenId != null 
+        ? ref.watch(denInviteCodeProvider(userProfile!.activeDenId!))
         : const AsyncValue<String?>.data(null);
 
     return Scaffold(
@@ -68,20 +68,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'DEN',
+          'LIVE MAP',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 2),
         ).animate().fade().scale(),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: Spacing.s),
-            child: CircleAvatar(
-              backgroundColor: AppColors.surface,
-              child: IconButton(
-                icon: const Icon(Icons.settings, color: AppColors.textPrimary, size: 20),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: AppColors.textPrimary),
+            onPressed: () => _showQuickMessageInput(),
           ),
+          const SizedBox(width: Spacing.s),
         ],
       ),
       body: permissionState.when(
@@ -101,10 +96,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 return Marker(
                   markerId: MarkerId(m.uid),
                   position: LatLng(m.latitude!, m.longitude!),
-                  infoWindow: InfoWindow(
-                    title: isSelf ? '${m.name} (Me)' : m.name,
-                    snippet: 'Last updated: ${m.lastUpdated != null ? _formatTime(m.lastUpdated!) : 'Unknown'}',
-                  ),
+                  onTap: () => _zoomToMember(m),
                   icon: isSelf 
                     ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure)
                     : BitmapDescriptor.defaultMarker,
@@ -139,6 +131,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ),
                   
+                  // Message Overlays
+                  ...quickMessages.map((msg) => _buildMessageOverlay(msg, memberList)),
+
                   // Top Floating Stats
                   Positioned(
                     top: 100,
@@ -149,19 +144,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 10,
-                            height: 10,
+                            width: 8,
+                            height: 8,
                             decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.success),
                           ).animate(onPlay: (c) => c.repeat()).fade(duration: 1.seconds),
                           const SizedBox(width: Spacing.s),
-                          Text('${memberList.length} ACTIVE', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('${memberList.length} IN CIRCLE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                           const Spacer(),
                           inviteCode.when(
                             data: (code) => GestureDetector(
                               onTap: () => _showInviteDialog(code ?? ''),
-                              child: Text('INVITE: ${code ?? '...'}', style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+                              child: Text('CODE: ${code ?? '...'}', style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)),
                             ),
-                            loading: () => const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2)),
+                            loading: () => const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2)),
                             error: (e, _) => const Text('ERR'),
                           ),
                         ],
@@ -171,62 +166,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
                   // SOS Button
                   Positioned(
-                    bottom: 200,
+                    bottom: 220,
                     right: Spacing.m,
                     child: FloatingActionButton(
-                      heroTag: 'sos',
+                      heroTag: 'sos_map',
                       backgroundColor: AppColors.error,
                       onPressed: () => _confirmSOS(),
                       child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 30),
                     ).animate(onPlay: (c) => c.repeat()).shimmer(delay: 2.seconds),
                   ),
 
-                  // Den United Overlay
-                  if (ref.watch(denUnitedProvider))
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.5),
-                        child: Center(
-                          child: GlassCard(
-                            padding: const EdgeInsets.all(Spacing.xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('🎉', style: TextStyle(fontSize: 60)),
-                                const SizedBox(height: Spacing.m),
-                                Text(
-                                  'DEN UNITED',
-                                  style: GoogleFonts.outfit(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4),
-                                ),
-                                const Text('Everyone is safe and together.'),
-                              ],
-                            ),
-                          ).animate().scale().fadeIn(),
-                        ),
-                      ),
-                    ),
-
-                  // Bottom Member List Scroll
+                  // Bottom Member List
                   Positioned(
-                    bottom: 0,
+                    bottom: 20,
                     left: 0,
                     right: 0,
-                    child: Container(
-                      height: 180,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, AppColors.background.withValues(alpha: 0.8)],
-                        ),
-                      ),
+                    child: SizedBox(
+                      height: 120,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: Spacing.m, vertical: Spacing.l),
+                        padding: const EdgeInsets.symmetric(horizontal: Spacing.m),
                         itemCount: memberList.length,
                         itemBuilder: (context, index) {
                           final member = memberList[index];
-                          return _buildMemberCard(member, userProfile?.uid == member.uid, index, userProfile);
+                          return _buildMemberMiniCard(member, userProfile?.uid == member.uid, userProfile);
                         },
                       ),
                     ),
@@ -244,49 +207,107 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  Widget _buildMemberCard(UserModel member, bool isSelf, int index, UserModel? currentUser) {
-    return Padding(
-      padding: const EdgeInsets.only(right: Spacing.m),
-      child: GlassCard(
-        padding: const EdgeInsets.all(Spacing.m),
-        borderRadius: 20,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: isSelf ? AppColors.primary : AppColors.surface,
-                  child: Text(member.name.isNotEmpty ? member.name[0].toUpperCase() : '?'),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AppColors.success,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.surface, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: Spacing.s),
-            Text(
-              isSelf ? 'Me' : member.name,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              '${_getDistanceString(member, currentUser)} km',
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
-            ),
-          ],
+  Widget _buildMessageOverlay(dynamic msg, List<UserModel> members) {
+    try {
+      final sender = members.firstWhere((m) => m.uid == msg.senderId);
+      if (sender.latitude == null || _mapController == null) return const SizedBox.shrink();
+
+      return FutureBuilder<ScreenCoordinate>(
+        future: _mapController!.getScreenCoordinate(LatLng(sender.latitude!, sender.longitude!)),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const SizedBox.shrink();
+          final coord = snapshot.data!;
+          
+          return Positioned(
+            left: coord.x.toDouble() - 50,
+            top: coord.y.toDouble() - 60,
+            child: GlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              borderRadius: 15,
+              child: Text(
+                msg.content,
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ).animate().fade().slideY(begin: 0.5),
+          );
+        },
+      );
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildMemberMiniCard(UserModel member, bool isSelf, UserModel? currentUser) {
+    return GestureDetector(
+      onTap: () => _zoomToMember(member),
+      child: Padding(
+        padding: const EdgeInsets.only(right: Spacing.s),
+        child: GlassCard(
+          padding: const EdgeInsets.all(Spacing.s),
+          borderRadius: 15,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: isSelf ? AppColors.primary : AppColors.surface,
+                child: Text(member.username.isNotEmpty ? member.username[0].toUpperCase() : '?', style: const TextStyle(fontSize: 14)),
+              ),
+              const SizedBox(height: 4),
+              Text(isSelf ? 'Me' : member.username, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              Text('${_getDistanceString(member, currentUser)}km', style: const TextStyle(fontSize: 8, color: AppColors.textSecondary)),
+            ],
+          ),
         ),
-      ).animate().fade().scale(delay: 100.ms * index),
+      ),
+    );
+  }
+
+  void _zoomToMember(UserModel member) {
+    if (member.latitude != null && member.longitude != null) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(member.latitude!, member.longitude!), 18),
+      );
+    }
+  }
+
+  void _showQuickMessageInput() {
+    final controller = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: GlassCard(
+          padding: const EdgeInsets.all(Spacing.l),
+          borderRadius: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('SEND QUICK MESSAGE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const Text('Max 3 words, expires in 15s', style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              const SizedBox(height: Spacing.m),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLength: 20,
+                decoration: const InputDecoration(hintText: 'e.g. On my way!'),
+              ),
+              const SizedBox(height: Spacing.m),
+              GlassButton(
+                onPressed: () {
+                  if (controller.text.isNotEmpty) {
+                    ref.read(mapControllerProvider.notifier).sendQuickMessage(controller.text);
+                    Navigator.pop(context);
+                  }
+                },
+                text: 'SEND',
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -380,7 +401,4 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
-  String _formatTime(DateTime time) {
-    return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
-  }
 }

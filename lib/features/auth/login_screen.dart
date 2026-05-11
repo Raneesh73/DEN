@@ -6,6 +6,8 @@ import '../../core/app_colors.dart';
 import '../../core/spacing_constants.dart';
 import '../../widgets/glass_widgets.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
+import 'otp_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -138,15 +140,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   
                   const SizedBox(height: Spacing.m),
                   
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                        child: Text('Forgot Password?', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OTPScreen(email: _emailController.text))),
+                        child: Text('Login with OTP', style: TextStyle(color: AppColors.primary.withValues(alpha: 0.7), fontSize: 12)),
+                      ),
+                    ],
+                  ).animate().fade(delay: 1.seconds),
+
+                  const SizedBox(height: Spacing.xl),
+                  
                   TextButton(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const RegisterScreen()),
                     ),
-                    child: Text(
-                      'CREATE AN ACCOUNT',
-                      style: TextStyle(color: AppColors.primary.withValues(alpha: 0.8), letterSpacing: 2),
+                    child: RichText(
+                      text: TextSpan(
+                        text: 'New here? ',
+                        style: TextStyle(color: AppColors.textSecondary, letterSpacing: 1),
+                        children: [
+                          TextSpan(
+                            text: 'CREATE ACCOUNT',
+                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
-                  ).animate().fade(delay: 1.seconds),
+                  ).animate().fade(delay: 1.2.seconds),
                   
                   if (state.hasError)
                     Padding(
